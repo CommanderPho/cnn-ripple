@@ -31,7 +31,10 @@ class ExtendedRippleDetection(object):
 
         print("Loading CNN model...", end=" ")
         self.optimizer = kr.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
-        self.model = kr.models.load_model("../../model", compile=False)
+        # relative:
+        # model_path = "../../model"
+        model_path = r"C:\Users\pho\repos\cnn-ripple\model"
+        self.model = kr.models.load_model(model_path, compile=False)
         self.model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
         print("Done!")
 
@@ -301,13 +304,28 @@ class ExtendedRippleDetection(object):
 if __name__ == '__main__':
     # app = QApplication([])
     # model_path = r'C:\Users\pho\repos\cnn-ripple\model'
-    g_drive_session_path = Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15')
+    # g_drive_session_path = Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15')
     active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
+    active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40], [9,10,11,12,13,14,15,16],
+                 [49, 50, 51, 52, 53, 54, 55, 56, 25, 26, 27, 28, 29, 30, 31, 32, 1, 2,	3,	4,	5,	6,	7,	8,	17,	18,	19,	20,	21,	22,	23,	24], 
+                [65,66,67,68,69,70,71,72]]
+
+    # active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
+    # active_shank_channels_lists = [[2, 3, 4, 5, 6],
+    #      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    #      [19, 20, 21, 22], 
+    #     # [23, 24, 25], 
+    #     [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+    #     #  [40],
+    #      [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+    #      [56, 57, 58, 59, 60]]
+
+    active_shank_channels_lists = [a_list[:8] for a_list in active_shank_channels_lists if len(a_list)>=8]
+    print(f'active_shank_channels_lists: {active_shank_channels_lists}')
     test_detector = ExtendedRippleDetection()
     ripple_df, out_all_ripple_results = test_detector.compute(active_session_folder=active_local_session_path, numchannel=96, srLfp=1250, 
-            active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40], [9,10,11,12,13,14,15,16],
-                #  [49, 50, 51, 52, 53, 54, 55, 56, 25, 26, 27, 28, 29, 30, 31, 32, 1, 2,	3,	4,	5,	6,	7,	8,	17,	18,	19,	20,	21,	22,	23,	24], 
-                [65,66,67,68,69,70,71,72]])
+            active_shank_channels_lists = active_shank_channels_lists)
 
-    # widget.show()
-    # sys.exit(app.exec_())
+    # out_all_ripple_results
+    ripple_df.to_pickle(active_local_session_path.joinpath('ripple_df.pkl'))
+    print(f'done. Exiting.')
