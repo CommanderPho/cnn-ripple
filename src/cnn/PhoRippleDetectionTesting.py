@@ -41,22 +41,28 @@ class ExtendedRippleDetection(object):
 
     def compute(self, active_session_folder=Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15'), numchannel = 96,
             srLfp = 1250, downsampled_fs = 1250, 
-            overlapping = True, window_size = 0.0128, stride = 0.0064, # window parameters
+            overlapping = True, window_size = 0.0128, window_stride = 0.0064, # window parameters
             ripple_detection_threshold=0.7,
             active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88]]
             ):
         self.active_session_folder = active_session_folder
         self.loaded_eeg_data, self.active_session_eeg_data_filepath, self.active_session_folder = self.load_eeg_data(active_session_folder=active_session_folder, numchannel=numchannel)
-        out_all_ripple_results = self.compute_ripples(self.model, self.loaded_eeg_data, srLfp=srLfp, downsampled_fs=downsampled_fs, overlapping=overlapping, window_size=window_size, stride=stride, ripple_detection_threshold=ripple_detection_threshold, active_shank_channels_lists=active_shank_channels_lists, out_all_ripple_results=None)
+        out_all_ripple_results = self.compute_ripples(self.model, self.loaded_eeg_data, srLfp=srLfp, downsampled_fs=downsampled_fs, overlapping=overlapping, window_size=window_size, window_stride=window_stride, ripple_detection_threshold=ripple_detection_threshold, active_shank_channels_lists=active_shank_channels_lists, out_all_ripple_results=None)
         self.out_all_ripple_results = out_all_ripple_results
 
-        with open('out_all_ripple_results.pkl', 'wb') as f:
+        out_all_ripple_results_filepath = active_session_folder.joinpath('out_all_ripple_results.pkl')
+        with open(out_all_ripple_results_filepath, 'wb') as f:
+            print(f'saving results to {str(out_all_ripple_results_filepath)}...')
             pickle.dump(out_all_ripple_results, f)
-        flattened_pred_ripple_start_stop_times = np.vstack([a_result['pred_times'] for a_result in out_all_ripple_results['results'].values()])
+        print(f'done.')
+        # test_output_shapes = [np.shape(a_result['pred_times']) for a_result in out_all_ripple_results['results'].values()]
+        # print(f'test_output_shapes: {test_output_shapes}')
+        # test_output_shapes = [a_result['pred_times'] for a_result in out_all_ripple_results['results'].values()]
+        flattened_pred_ripple_start_stop_times = np.vstack([a_result['pred_times'] for a_result in out_all_ripple_results['results'].values() if np.size(a_result['pred_times'])>0])
         print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
         ripple_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1]})
         self.ripple_df = ripple_df
-        print(f'ripple_df: {ripple_df}')
+        print(f'Saving ripple_df to csv: {self.predicted_ripples_dataframe_save_filepath}')
         ripple_df.to_csv(self.predicted_ripples_dataframe_save_filepath)
         return ripple_df, out_all_ripple_results
 
@@ -193,6 +199,59 @@ class ExtendedRippleDetection(object):
 
         return data
 
+    @classmethod
+    def _run_batch_cycle(cls, model, loaded_eeg_data, active_shank, active_shank_channels, srLfp, downsampled_fs, overlapping, window_size, window_stride, ripple_detection_threshold):
+        """ captures:
+        srLfp, downsampled_fs
+        overlapping, window_size, window_stride
+        """
+        ## Begin:
+        if isinstance(active_shank_channels, list):
+            active_shank_channels = np.array(active_shank_channels) # convert to a numpy array
+        
+        # Subtract 1 from each element to get a channel index
+        active_shank_channels = active_shank_channels - 1
+
+        fs = srLfp
+        loaded_data = loaded_eeg_data[:,active_shank_channels]
+
+        print("Shape of loaded data: ", np.shape(loaded_data))
+        # Downsample data
+        
+        print("Downsampling data from %d Hz to %d Hz..."%(fs, downsampled_fs), end=" ")
+        data = cls._downsample_data(loaded_data, fs, downsampled_fs)
+        print("Done!")
+
+        # Normalize it with z-score
+        print("Normalizing data...", end=" ")
+        data = cls._z_score_normalization(data)
+        print("Done!")
+
+        print("Shape of loaded data after downsampling and z-score: ", np.shape(data))
+        
+        print("Generating windows...", end=" ")
+        if overlapping:
+            # Separate the data into 12.8ms windows with 6.4ms overlapping
+            X = generate_overlapping_windows(data, window_size, window_stride, downsampled_fs)
+        else:
+            window_stride = window_size
+            X = np.expand_dims(data, 0)
+        print("Done!")
+
+        print("Detecting ripples...", end=" ")
+        predictions = model.predict(X, verbose=True)
+        print("Done!")
+
+        # This threshold can be changed
+        
+        print("Getting detected ripples indexes and times...", end=" ")
+        pred_indexes = get_predictions_indexes(data, predictions, window_size=window_size, stride=window_stride, fs=downsampled_fs, threshold=ripple_detection_threshold)
+        pred_times = pred_indexes / downsampled_fs
+        print("Done!")
+
+        ## Single result output
+        return {'shank':active_shank, 'channels': active_shank_channels, 'predictions': predictions, 'pred_indexes': pred_indexes, 'pred_times': pred_times}
+
 
     ## Batch
     # Do Once:
@@ -214,66 +273,12 @@ class ExtendedRippleDetection(object):
     @classmethod
     def compute_ripples(cls, model, loaded_eeg_data, active_shank_channels_lists, 
         srLfp = 1250, downsampled_fs = 1250, 
-        overlapping = True, window_size = 0.0128, stride = 0.0064, # window parameters
+        overlapping = True, window_size = 0.0128, window_stride = 0.0064, # window parameters
         ripple_detection_threshold=0.7, out_all_ripple_results=None):
         
         ## Create Empty Output:
         computation_params = None
-        # out_all_ripple_results = None
 
-
-        def _run_batch_cycle(shank, active_shank_channels, srLfp, loaded_eeg_data):
-            """ captures:
-            srLfp, downsampled_fs
-            overlapping, window_size, stride
-            """
-            ## Begin:
-            if isinstance(active_shank_channels, list):
-                active_shank_channels = np.array(active_shank_channels) # convert to a numpy array
-            
-            # Subtract 1 from each element to get a channel index
-            active_shank_channels = active_shank_channels - 1
-
-            fs = srLfp
-            loaded_data = loaded_eeg_data[:,active_shank_channels]
-
-            print("Shape of loaded data: ", np.shape(loaded_data))
-            # Downsample data
-            
-            print("Downsampling data from %d Hz to %d Hz..."%(fs, downsampled_fs), end=" ")
-            data = cls._downsample_data(loaded_data, fs, downsampled_fs)
-            print("Done!")
-
-            # Normalize it with z-score
-            print("Normalizing data...", end=" ")
-            data = cls._z_score_normalization(data)
-            print("Done!")
-
-            print("Shape of loaded data after downsampling and z-score: ", np.shape(data))
-            
-            print("Generating windows...", end=" ")
-            if overlapping:
-                # Separate the data into 12.8ms windows with 6.4ms overlapping
-                X = generate_overlapping_windows(data, window_size, window_stride, downsampled_fs)
-            else:
-                window_stride = window_size
-                X = np.expand_dims(data, 0)
-            print("Done!")
-
-            print("Detecting ripples...", end=" ")
-            predictions = model.predict(X, verbose=True)
-            print("Done!")
-
-            # This threshold can be changed
-            
-            print("Getting detected ripples indexes and times...", end=" ")
-            pred_indexes = get_predictions_indexes(data, predictions, window_size=window_size, stride=window_stride, fs=downsampled_fs, threshold=ripple_detection_threshold)
-            pred_times = pred_indexes / downsampled_fs
-            print("Done!")
-
-            ## Single result output
-            return {'shank':shank, 'channels': active_shank_channels, 'predictions': predictions, 'pred_indexes': pred_indexes, 'pred_times': pred_times}
-            
         ## Create new global result containers IFF they don't already exists
         if computation_params is None:
             computation_params = dict(overlapping = True, window_size = 0.0128, stride=0.0064, threshold=ripple_detection_threshold, learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
@@ -284,35 +289,28 @@ class ExtendedRippleDetection(object):
         # active_shank_channels = [72,73,74,75,76,77,78,79]
         # shank = 1
         # active_shank_channels = [81,82,83,84,85,86,87,88]
-        # shank = 2
-        # active_shank_channels = [89,90,91,92,93,94,95,96]
-        # shank = 3
-        # active_shank_channels = [57,58,59,60,61,62,63,64]
         # ...
         
-
-        for shank, active_shank_channels in enumerate(active_shank_channels_lists):
-            print(f'working on shank {shank} with channels: {active_shank_channels}...')
+        for active_shank, active_shank_channels in enumerate(active_shank_channels_lists):
+            print(f'working on shank {active_shank} with channels: {active_shank_channels}...')
             try:
-                out_result = _run_batch_cycle(shank, active_shank_channels, loaded_eeg_data=loaded_eeg_data, srLfp=srLfp)
-                out_all_ripple_results['results'][shank] = out_result
+                out_result = cls._run_batch_cycle(model, loaded_eeg_data, active_shank, active_shank_channels, srLfp=srLfp, downsampled_fs=downsampled_fs, overlapping=overlapping, window_size=window_size, window_stride=window_stride, ripple_detection_threshold=ripple_detection_threshold)
+                out_all_ripple_results['results'][active_shank] = out_result
             except ValueError as e:
                 out_result = {} # empty output result
-                print(f'skipping shank {shank} with too many values ({len(active_shank_channels)}, expecting exactly 8).') 
-                # raise e
+                print(f'skipping shank {active_shank} with too many values ({len(active_shank_channels)}, expecting exactly 8).') 
 
         print(f'done with all!')
-        # out_all_ripple_results
         return out_all_ripple_results
 
 ## Start Qt event loop
 if __name__ == '__main__':
     # model_path = r'C:\Users\pho\repos\cnn-ripple\model'
     # g_drive_session_path = Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15')
-    # active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
-    # # active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40], [9,10,11,12,13,14,15,16],
-    # #              [49, 50, 51, 52, 53, 54, 55, 56, 25, 26, 27, 28, 29, 30, 31, 32, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24], 
-    # #             [65,66,67,68,69,70,71,72]]
+    active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
+    # active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40], [9,10,11,12,13,14,15,16],
+    #              [49, 50, 51, 52, 53, 54, 55, 56, 25, 26, 27, 28, 29, 30, 31, 32, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24], 
+    #             [65,66,67,68,69,70,71,72]]
 
     # active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40],
     #             [9,10,11,12,13,14,15,16],
@@ -322,31 +320,36 @@ if __name__ == '__main__':
     #             [17, 18, 19, 20, 21, 22, 23, 24], 
     #             [65,66,67,68,69,70,71,72]]
 
-    # _test_active_shank_channels_lists = np.array(active_shank_channels_lists).flatten()
-    # print(f'_test_active_shank_channels_lists: {_test_active_shank_channels_lists}\n {np.shape(_test_active_shank_channels_lists)}') # (104,)
+    numchannel=96
+    active_shank_channels_lists = [[49, 50, 51, 52, 53, 54, 55, 56], 
+                [25, 26, 27, 28, 29, 30, 31, 32], 
+                [1, 2, 3, 4, 5, 6, 7, 8],
+                [17, 18, 19, 20, 21, 22, 23, 24]]
+    _test_active_shank_channels_lists = np.array(active_shank_channels_lists).flatten()
+    print(f'_test_active_shank_channels_lists: {_test_active_shank_channels_lists}\n {np.shape(_test_active_shank_channels_lists)}') # (104,)
     
     
 
     
     # numchannel=104
 
-    active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
-    numchannel=96
-    active_shank_channels_lists = [[2, 3, 4, 5, 6],
-         [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
-         [19, 20, 21, 22], 
-        # [23, 24, 25], 
-        [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
-        #  [40],
-         [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
-         [56, 57, 58, 59, 60]]
+    # active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
+    # numchannel=96
+    # active_shank_channels_lists = [[2, 3, 4, 5, 6],
+    #      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    #      [19, 20, 21, 22], 
+    #     # [23, 24, 25], 
+    #     [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+    #     #  [40],
+    #      [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+    #      [56, 57, 58, 59, 60]]
 
-    active_shank_channels_lists = [a_list[:8] for a_list in active_shank_channels_lists if len(a_list)>=8]
+    # active_shank_channels_lists = [a_list[:8] for a_list in active_shank_channels_lists if len(a_list)>=8]
     
     print(f'active_shank_channels_lists: {active_shank_channels_lists}')
     test_detector = ExtendedRippleDetection(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
     ripple_df, out_all_ripple_results = test_detector.compute(active_session_folder=active_local_session_path, numchannel=numchannel, srLfp=1250, 
-            active_shank_channels_lists=active_shank_channels_lists, overlapping=False)
+            active_shank_channels_lists=active_shank_channels_lists, overlapping=True, window_size=0.0128, window_stride=0.0064)
 
     # out_all_ripple_results
     ripple_df.to_pickle(active_local_session_path.joinpath('ripple_df.pkl'))
