@@ -35,3 +35,10 @@ Inputs must meet the following characteristics:
 * Channels sorted from top to bottom
 
 ![alt text](https://github.com/RoyVII/cnn-ripple/blob/main/images/example_architecture.png)
+
+
+# PHO NOTES 2022-11-01
+
+
+
+python -m pip install -e C:\Users\pho\repos\NeuroPy
