@@ -15,6 +15,7 @@ dependencies:
   - console_shortcut
   - cudatoolkit=11.2
   - cudnn=8.1.0
+  - dill
   # - keras
   - pip:
     - tensorflow

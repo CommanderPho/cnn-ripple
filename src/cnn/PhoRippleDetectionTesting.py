@@ -2,9 +2,10 @@ import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
-import pickle
+import dill as pickle
 import itertools # for list unpacking
 from neuropy.utils.load_exported import LoadXml, find_session_xml # for compute_with_params_loaded_from_xml
+from neuropy.utils.dynamic_container import DynamicContainer, override_dict, overriding_dict_with, get_dict_subset
 
 from .load_data import generate_overlapping_windows
 from .format_predictions import get_predictions_indexes
@@ -26,24 +27,14 @@ class ExtendedRippleDetection(object):
         from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
 
     """
-    def __init__(self, learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False):
+    def __init__(self, **kwargs): # learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
         super(ExtendedRippleDetection, self).__init__()
         self.active_session_folder = None
         self.active_session_eeg_data_filepath = None
         self.loaded_eeg_data = None
         self.out_all_ripple_results = None
         self.ripple_df = None
-
-        print("Loading CNN model...", end=" ")
-        self.optimizer = kr.optimizers.Adam(learning_rate=learning_rate, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon, amsgrad=amsgrad)
-        # relative:
-        # model_path = "../../model"
-        # model_path = r"C:\Users\pho\repos\cnn-ripple\model"
-        model_path = _modelDirectory
-        self.model = kr.models.load_model(model_path, compile=False)
-        self.model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
-        print("Done!")
-
+        self.optimizer, self.model = self._load_model(**(dict(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)|kwargs))
 
     def compute(self, active_session_folder=Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15'), numchannel = 96,
             srLfp = 1250, downsampled_fs = 1250, 
@@ -65,14 +56,96 @@ class ExtendedRippleDetection(object):
         print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
         ripple_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1]})
         self.ripple_df = ripple_df
-        print(f'Saving ripple_df to csv: {self.predicted_ripples_dataframe_save_filepath}')
-        ripple_df.to_csv(self.predicted_ripples_dataframe_save_filepath)
+        print(f'Saving ripple_df to csv: {self.predicted_ripples_dataframe_csv_save_filepath}')
+        ripple_df.to_csv(self.predicted_ripples_dataframe_csv_save_filepath)
         return ripple_df, self.out_all_ripple_results
 
     @property
-    def predicted_ripples_dataframe_save_filepath(self):
-        """The predicted_ripples_dataframe_save_filepath property."""
+    def predicted_ripples_dataframe_csv_save_filepath(self):
         return self.active_session_folder.joinpath('pred_ripples.csv')
+
+    @property
+    def object_save_filepath(self):
+        return self.active_session_folder.joinpath('ripple_detector.pkl')
+
+    @property
+    def ripple_dataframe_pickle_save_filepath(self):
+        return self.active_session_folder.joinpath('ripple_df.pkl')
+
+
+
+    def _load_model(self, learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False):
+        print("Loading CNN model...", end=" ")
+        optimizer = kr.optimizers.Adam(learning_rate=learning_rate, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon, amsgrad=amsgrad)
+        # model_path = "../../model"
+        # model_path = r"C:\Users\pho\repos\cnn-ripple\model"
+        model_path = _modelDirectory
+        model = kr.models.load_model(model_path, compile=False)
+        model.compile(loss="binary_crossentropy", optimizer=optimizer)
+        print("Done!")
+        return optimizer, model
+
+
+
+
+    # ==================================================================================================================== #
+    # Persistance Saving/Loading                                                                                           #
+    # ==================================================================================================================== #
+    def __getstate__(self):
+        """Used for serializing instances"""  
+        # start with a copy so we don't accidentally modify the object state
+        # or cause other conflicts
+        state = self.__dict__.copy()
+
+        # remove unpicklable entries
+        # test_detector.model # keras.engine.sequential.Sequential
+        # test_detector.optimizer # keras.optimizers.optimizer_v2.adam.Adam
+        del state['model']
+        del state['optimizer']
+
+        return state
+
+    def __setstate__(self, state):
+        """Used for deserializing"""
+        # restore the state which was picklable
+        self.__dict__.update(state)
+        
+        ## restore unpicklable entries (self.optimizer, self.model)
+        if self.out_all_ripple_results is not None:
+            loaded_model_kwargs = get_dict_subset(self.out_all_ripple_results['computation_params'], ['learning_rate', 'beta_1', 'beta_2', 'epsilon', 'amsgrad'])
+        else:
+            loaded_model_kwargs = {} # empty dict to use defaults
+        # Rebuild the model:
+        self.optimizer, self.model = self._load_model(**(dict(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)|loaded_model_kwargs))
+
+
+    def save(self):
+        """pickles the whole ExtendedRippleDetection object to file"""
+        out_ripple_detector_filepath = self.object_save_filepath
+        with open(out_ripple_detector_filepath, 'wb') as f:
+            print(f'saving entire ripple detector object to {str(out_ripple_detector_filepath)}...')
+            pickle.dump(self, f)
+        print(f'done.')
+
+    @classmethod
+    def load(cls, in_ripple_detector_filepath):
+        """Unpickle the object from file
+        Usage:
+            from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+            in_ripple_detector_filepath = Path(r'W:\Data\KDIBA\gor01\one\2006-6-07_11-26-53\ripple_detector.pkl')
+            loaded_ripple_detector = ExtendedRippleDetection.load(in_ripple_detector_filepath)
+            loaded_ripple_detector
+
+        """
+        with open(in_ripple_detector_filepath, 'rb') as f:
+            print(f'loading pickled ripple detector object from {str(in_ripple_detector_filepath)}...')
+            loaded_ripple_detector = pickle.load(f)
+        print(f'done.')
+        return loaded_ripple_detector
+
+    # ==================================================================================================================== #
+    # Class and Static Methods                                                                                             #
+    # ==================================================================================================================== #
 
     @classmethod
     def readmulti(cls, fname, numchannel:int, chselect=None, *args):
@@ -362,7 +435,7 @@ def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
     # out_all_ripple_results
     ripple_df.to_pickle(local_session_path.joinpath('ripple_df.pkl'))
     print(f'done. Exiting.')
-    return test_detector, ripple_df, out_all_ripple_results, out_all_ripple_results
+    return test_detector, ripple_df, out_all_ripple_results
 
 
 if __name__ == '__main__':
@@ -374,7 +447,7 @@ if __name__ == '__main__':
     local_session_paths_list = [local_session_parent_path.joinpath(a_name).resolve() for a_name in local_session_names_list]
 
     active_local_session_path: Path = local_session_paths_list[0]
-    test_detector, ripple_df, out_all_ripple_results, out_all_ripple_results = main_compute_with_params_loaded_from_xml(active_local_session_path)
+    test_detector, ripple_df, out_all_ripple_results = main_compute_with_params_loaded_from_xml(active_local_session_path)
 
 
     # # active_shank_channels_lists = [a_list[:8] for a_list in active_shank_channels_lists if len(a_list)>=8]
