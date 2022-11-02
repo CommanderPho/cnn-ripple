@@ -3,9 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - tensorflow
   - pip
-  - keras
   - numpy
   - scipy
   - h5py
@@ -17,5 +15,7 @@ dependencies:
   - console_shortcut
   - cudatoolkit=11.2
   - cudnn=8.1.0
-  # - matplotlib
+  # - keras
+  - pip:
+    - tensorflow
 prefix: C:\Users\pho\miniconda3\envs\cnn-new-env
