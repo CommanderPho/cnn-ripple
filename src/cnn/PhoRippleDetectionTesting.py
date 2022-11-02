@@ -285,6 +285,21 @@ class ExtendedRippleDetection(object):
         if out_all_ripple_results is None:
             out_all_ripple_results = {'computation_params': computation_params, 'results': dict()}
 
+
+        ## Pre-process the data
+
+        # flattened_channels_list is a flat list of channels (not partitioned into lists of 8 channels corresponding to a single probe)
+        flattened_channels_list = list(itertools.chain.from_iterable(active_shank_channels_lists))
+
+        print("Shape of loaded data: ", np.shape(loaded_eeg_data))
+        # Downsample data
+        downsampled_loaded_eeg_data = cls._downsample_data(loaded_eeg_data, srLfp, downsampled_fs)
+        post_downsampling_srLfp = downsampled_fs # after downsampling data, the passed srLfp should be set to the downsampled rate so it isn't downsampled again
+
+        out_all_ripple_results['preprocessed_data'] = {'data':downsampled_loaded_eeg_data, 'post_downsampling_srLfp': post_downsampling_srLfp, 'flattened_channels_list': flattened_channels_list}
+        print("Done!")
+
+
         # shank = 0
         # active_shank_channels = [72,73,74,75,76,77,78,79]
         # shank = 1
