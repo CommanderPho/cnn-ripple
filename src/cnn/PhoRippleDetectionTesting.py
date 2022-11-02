@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -12,7 +13,9 @@ import tensorflow.keras as kr
 
 
 
-
+## Define the .ui file path
+_path = os.path.dirname(os.path.abspath(__file__))
+_modelDirectory = os.path.join(_path, '../../model')
 
 
 ## Save result if wanted:
@@ -30,7 +33,8 @@ class ExtendedRippleDetection(object):
         self.optimizer = kr.optimizers.Adam(learning_rate=learning_rate, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon, amsgrad=amsgrad)
         # relative:
         # model_path = "../../model"
-        model_path = r"C:\Users\pho\repos\cnn-ripple\model"
+        # model_path = r"C:\Users\pho\repos\cnn-ripple\model"
+        model_path = _modelDirectory
         self.model = kr.models.load_model(model_path, compile=False)
         self.model.compile(loss="binary_crossentropy", optimizer=self.optimizer)
         print("Done!")
