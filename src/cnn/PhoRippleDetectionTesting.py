@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 import pickle
 
+# from neuropy.utils.load_exported import LoadXml # for compute_with_params_loaded_from_xml
 
 from load_data import generate_overlapping_windows
 from format_predictions import get_predictions_indexes
@@ -15,10 +16,6 @@ import tensorflow.keras as kr
 
 
 ## Save result if wanted:
-
-
-
-
 class ExtendedRippleDetection(object):
     """docstring for ExtendedRippleDetection."""
     def __init__(self, learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False):
@@ -55,9 +52,6 @@ class ExtendedRippleDetection(object):
             print(f'saving results to {str(out_all_ripple_results_filepath)}...')
             pickle.dump(out_all_ripple_results, f)
         print(f'done.')
-        # test_output_shapes = [np.shape(a_result['pred_times']) for a_result in out_all_ripple_results['results'].values()]
-        # print(f'test_output_shapes: {test_output_shapes}')
-        # test_output_shapes = [a_result['pred_times'] for a_result in out_all_ripple_results['results'].values()]
         flattened_pred_ripple_start_stop_times = np.vstack([a_result['pred_times'] for a_result in out_all_ripple_results['results'].values() if np.size(a_result['pred_times'])>0])
         print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
         ripple_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1]})
@@ -303,6 +297,18 @@ class ExtendedRippleDetection(object):
         print(f'done with all!')
         return out_all_ripple_results
 
+
+# def compute_with_params_loaded_from_xml(local_session_path):
+#     # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
+#     # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
+#     local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
+
+#     session_stem = local_session_path.stem # '2006-6-08_14-26-15'
+#     session_xml_filepath = local_session_path.joinpath(session_stem).with_suffix('.xml')
+#     print(f'local_session_path: {local_session_path}')
+#     print(f'session_xml_filepath: {session_xml_filepath}')
+#     assert session_xml_filepath.exists() and session_xml_filepath.is_file()
+
 ## Start Qt event loop
 if __name__ == '__main__':
     # model_path = r'C:\Users\pho\repos\cnn-ripple\model'
@@ -325,8 +331,8 @@ if __name__ == '__main__':
                 [25, 26, 27, 28, 29, 30, 31, 32], 
                 [1, 2, 3, 4, 5, 6, 7, 8],
                 [17, 18, 19, 20, 21, 22, 23, 24]]
-    _test_active_shank_channels_lists = np.array(active_shank_channels_lists).flatten()
-    print(f'_test_active_shank_channels_lists: {_test_active_shank_channels_lists}\n {np.shape(_test_active_shank_channels_lists)}') # (104,)
+    # _test_active_shank_channels_lists = np.array(active_shank_channels_lists).flatten()
+    # print(f'_test_active_shank_channels_lists: {_test_active_shank_channels_lists}\n {np.shape(_test_active_shank_channels_lists)}') # (104,)
     
     
 
