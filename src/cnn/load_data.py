@@ -5,7 +5,8 @@ import h5py
 import sys
 import os
 
-import bz_LoadBinary
+# uses current package visibility
+from . import bz_LoadBinary
 
 
 def load_info (path):

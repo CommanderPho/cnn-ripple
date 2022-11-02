@@ -3,11 +3,11 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import pickle
-
+import itertools # for list unpacking
 from neuropy.utils.load_exported import LoadXml, find_session_xml # for compute_with_params_loaded_from_xml
 
-from load_data import generate_overlapping_windows
-from format_predictions import get_predictions_indexes
+from .load_data import generate_overlapping_windows
+from .format_predictions import get_predictions_indexes
 import tensorflow.keras.backend as K
 import tensorflow.keras as kr
 
@@ -20,7 +20,12 @@ _modelDirectory = os.path.join(_path, '../../model')
 
 ## Save result if wanted:
 class ExtendedRippleDetection(object):
-    """docstring for ExtendedRippleDetection."""
+    """docstring for ExtendedRippleDetection.
+
+    Usage:
+        from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+
+    """
     def __init__(self, learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False):
         super(ExtendedRippleDetection, self).__init__()
         self.active_session_folder = None
@@ -214,11 +219,11 @@ class ExtendedRippleDetection(object):
         # Get the subset of the data corresponding to only the active channels 
         loaded_data = loaded_eeg_data[:,active_shank_channels]
         if debug_print:
-        print("Shape of loaded data: ", np.shape(loaded_data))
+            print("Shape of loaded data: ", np.shape(loaded_data))
         # Downsample data (if needed)
         data = cls._downsample_data(loaded_data, fs, downsampled_fs)
         if debug_print:
-        print("Done!")
+            print("Done!")
 
         # Normalize it with z-score
         print("Normalizing data...", end=" ")
