@@ -42,3 +42,11 @@ Inputs must meet the following characteristics:
 
 
 python -m pip install -e C:\Users\pho\repos\NeuroPy
+
+# NEW 2022-11-02
+
+mamba env create -f cnn-new-env.yml
+conda activate cnn-new-env
+
+
+
