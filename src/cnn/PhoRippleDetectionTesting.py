@@ -303,9 +303,23 @@ class ExtendedRippleDetection(object):
 
 
 def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
-    # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
-    # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
-    local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
+    """Loads the session recording info from the XML located in the local_session_path (session folder), and the computes the ripples from that data
+
+    Args:
+        local_session_path (_type_): _description_
+
+    Returns:
+        _type_: _description_
+
+    Usage:
+
+        # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
+        # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
+        local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
+        ripple_df, out_all_ripple_results, out_all_ripple_results = main_compute_with_params_loaded_from_xml(active_local_session_path)
+
+
+    """
     session_xml_filepath, session_stem, local_session_path = find_session_xml(local_session_path)
     out_xml_dict, d = LoadXml(session_xml_filepath)
     print(f"active_shank_channels_lists: {out_xml_dict['AnatGrps']}")
@@ -328,54 +342,14 @@ def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
 if __name__ == '__main__':
     # model_path = r'C:\Users\pho\repos\cnn-ripple\model'
     # g_drive_session_path = Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15')
-    active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
-    # active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40], [9,10,11,12,13,14,15,16],
-    #              [49, 50, 51, 52, 53, 54, 55, 56, 25, 26, 27, 28, 29, 30, 31, 32, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24], 
-    #             [65,66,67,68,69,70,71,72]]
 
-    # active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88], [89,90,91,92,93,94,95,96], [57,58,59,60,61,62,63,64], [41,42,43,44,45,46,47,48], [33,34,35,36,37,38,39,40], [33,34,35,36,37,38,39,40],
-    #             [9,10,11,12,13,14,15,16],
-    #             [49, 50, 51, 52, 53, 54, 55, 56], 
-    #             [25, 26, 27, 28, 29, 30, 31, 32], 
-    #             [1, 2, 3, 4, 5, 6, 7, 8],
-    #             [17, 18, 19, 20, 21, 22, 23, 24], 
-    #             [65,66,67,68,69,70,71,72]]
+    local_session_parent_path = Path(r'W:\Data\KDIBA\gor01\one')
+    local_session_names_list = ['2006-6-07_11-26-53', '2006-6-08_14-26-15', '2006-6-09_1-22-43', '2006-6-09_3-23-37', '2006-6-12_15-55-31', '2006-6-13_14-42-6']
+    local_session_paths_list = [local_session_parent_path.joinpath(a_name).resolve() for a_name in local_session_names_list]
 
-
+    active_local_session_path: Path = local_session_paths_list[0]
     ripple_df, out_all_ripple_results, out_all_ripple_results = main_compute_with_params_loaded_from_xml(active_local_session_path)
 
 
-    # numchannel=96
-    # active_shank_channels_lists = [[49, 50, 51, 52, 53, 54, 55, 56], 
-    #             [25, 26, 27, 28, 29, 30, 31, 32], 
-    #             [1, 2, 3, 4, 5, 6, 7, 8],
-    #             [17, 18, 19, 20, 21, 22, 23, 24]]
-    # # _test_active_shank_channels_lists = np.array(active_shank_channels_lists).flatten()
-    # # print(f'_test_active_shank_channels_lists: {_test_active_shank_channels_lists}\n {np.shape(_test_active_shank_channels_lists)}') # (104,)
-    
-    
-
-    
-    # # numchannel=104
-
-    # # active_local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-13_14-42-6')
-    # # numchannel=96
-    # # active_shank_channels_lists = [[2, 3, 4, 5, 6],
-    # #      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
-    # #      [19, 20, 21, 22], 
-    # #     # [23, 24, 25], 
-    # #     [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
-    # #     #  [40],
-    # #      [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
-    # #      [56, 57, 58, 59, 60]]
-
     # # active_shank_channels_lists = [a_list[:8] for a_list in active_shank_channels_lists if len(a_list)>=8]
     
-    # print(f'active_shank_channels_lists: {active_shank_channels_lists}')
-    # test_detector = ExtendedRippleDetection(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
-    # ripple_df, out_all_ripple_results = test_detector.compute(active_session_folder=active_local_session_path, numchannel=numchannel, srLfp=1250, 
-    #         active_shank_channels_lists=active_shank_channels_lists, overlapping=True, window_size=0.0128, window_stride=0.0064)
-
-    # # out_all_ripple_results
-    # ripple_df.to_pickle(active_local_session_path.joinpath('ripple_df.pkl'))
-    # print(f'done. Exiting.')
