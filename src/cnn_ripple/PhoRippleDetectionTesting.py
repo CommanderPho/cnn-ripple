@@ -18,6 +18,15 @@ import tensorflow.keras as kr
 _path = os.path.dirname(os.path.abspath(__file__))
 _modelDirectory = os.path.join(_path, '../../model')
 
+# Works around objects that were pickled with old object names producing error: # ModuleNotFoundError: No module named 'src.cnn'
+class RenamingUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        print(f'RenamingUnpickler.find_class(module: {module}, name: {name})')
+        # if module == 'src.cnn':
+        #     module = 'cnn_ripple'
+        module = module.replace('src.cnn', 'cnn_ripple', 1)
+        return super().find_class(module, name)
+
 
 ## Save result if wanted:
 class ExtendedRippleDetection(object):
@@ -162,7 +171,12 @@ class ExtendedRippleDetection(object):
         """
         with open(in_ripple_detector_filepath, 'rb') as f:
             print(f'loading pickled ripple detector object from {str(in_ripple_detector_filepath)}...')
-            loaded_ripple_detector = pickle.load(f)
+            try:
+                loaded_ripple_detector = pickle.load(f)
+            except ModuleNotFoundError as e:
+                print(f'encountered old class ({e}). Trying RenamingUnpickler...')
+                loaded_ripple_detector = RenamingUnpickler(f).load()
+
         print(f'done.')
         return loaded_ripple_detector
 

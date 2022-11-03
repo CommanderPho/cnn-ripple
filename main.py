@@ -2,7 +2,7 @@ import sys
 import importlib
 from pathlib import Path
 from copy import deepcopy
-from numba import jit
+# from numba import jit
 import numpy as np
 import pandas as pd
 from src.cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
