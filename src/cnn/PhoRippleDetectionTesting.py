@@ -60,6 +60,7 @@ class ExtendedRippleDetection(object):
         ripple_df.to_csv(self.predicted_ripples_dataframe_csv_save_filepath)
         return ripple_df, self.out_all_ripple_results
 
+    # load/save paths ____________________________________________________________________________________________________ #
     @property
     def predicted_ripples_dataframe_csv_save_filepath(self):
         return self.active_session_folder.joinpath('pred_ripples.csv')
@@ -71,6 +72,33 @@ class ExtendedRippleDetection(object):
     @property
     def ripple_dataframe_pickle_save_filepath(self):
         return self.active_session_folder.joinpath('ripple_df.pkl')
+
+    # computation_params _________________________________________________________________________________________________ #
+    @property
+    def computation_params(self):
+        return self.out_all_ripple_results.get('computation_params', None)
+
+    # preprocessed_data __________________________________________________________________________________________________ #
+    @property
+    def _preprocessed_data(self):
+        return self.out_all_ripple_results.get('preprocessed_data', None)
+    @property
+    def flattened_channels_list(self):
+        return self._preprocessed_data.get('flattened_channels_list', None)
+    @property
+    def preprocessed_data(self):
+        return self._preprocessed_data.get('data', None)
+
+    # results ____________________________________________________________________________________________________________ #
+    @property
+    def results(self):
+        return self.out_all_ripple_results.get('results', None)
+
+
+
+
+
+
 
 
 
@@ -435,6 +463,10 @@ def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
     # out_all_ripple_results
     ripple_df.to_pickle(local_session_path.joinpath('ripple_df.pkl'))
     print(f'done. Exiting.')
+
+    # Save the main object
+    test_detector.save()
+
     return test_detector, ripple_df, out_all_ripple_results
 
 

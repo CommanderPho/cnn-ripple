@@ -3,3 +3,4 @@ data/
 src/cnn/__pycache__/
 figshare/__pycache__/
 src/notebooks/figshare*/
+**/__pycache__
