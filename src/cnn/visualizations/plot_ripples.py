@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     active_local_session_path: Path = local_session_paths_list[0]
     # ## Compute new result (slow)
-    # test_detector, ripple_df, out_all_ripple_results, out_all_ripple_results = main_compute_with_params_loaded_from_xml(active_local_session_path)
+    # test_detector, ripple_df, out_all_ripple_results = main_compute_with_params_loaded_from_xml(active_local_session_path)
 
     ## Load existing result instead
     in_ripple_detector_filepath = active_local_session_path.joinpath('ripple_detector.pkl') # Path(r'W:\Data\KDIBA\gor01\one\2006-6-07_11-26-53\ripple_detector.pkl')

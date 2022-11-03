@@ -21,7 +21,7 @@ _modelDirectory = os.path.join(_path, '../../model')
 
 ## Save result if wanted:
 class ExtendedRippleDetection(object):
-    """docstring for ExtendedRippleDetection.
+    """ Uses the tensorflow model to detect ripples in a given recording sessions LFPs
 
     Usage:
         from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
@@ -94,14 +94,9 @@ class ExtendedRippleDetection(object):
     def results(self):
         return self.out_all_ripple_results.get('results', None)
 
-
-
-
-
-
-
-
-
+    # ==================================================================================================================== #
+    # Helpers                                                                                                              #
+    # ==================================================================================================================== #
     def _load_model(self, learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False):
         print("Loading CNN model...", end=" ")
         optimizer = kr.optimizers.Adam(learning_rate=learning_rate, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon, amsgrad=amsgrad)
@@ -431,12 +426,12 @@ class ExtendedRippleDetection(object):
 # Start MAIN                                                                                                           #
 # ==================================================================================================================== #
 
-def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
+def main_compute_with_params_loaded_from_xml(local_session_path, whitelisted_shank_ids=None, **kwargs):
     """Loads the session recording info from the XML located in the local_session_path (session folder), and the computes the ripples from that data
 
     Args:
         local_session_path (_type_): _description_
-
+        whitelisted_shank_ids (list): only include the specified shank IDS, e.g. [0, 1, 2]
     Returns:
         _type_: _description_
 
@@ -452,11 +447,17 @@ def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
     """
     session_xml_filepath, session_stem, local_session_path = find_session_xml(local_session_path)
     out_xml_dict, d = LoadXml(session_xml_filepath)
-    print(f"active_shank_channels_lists: {out_xml_dict['AnatGrps']}")
+    active_shank_channels_lists = out_xml_dict['AnatGrps']
+    if whitelisted_shank_ids is not None:
+        # only include the specified shank IDS, e.g. [0, 1, 2]
+        print(f'including only WHITELISTED shank IDS: {whitelisted_shank_ids}')
+        active_shank_channels_lists = [active_shank_channels_lists[i] for i in whitelisted_shank_ids]
+    
+    print(f"active_shank_channels_lists: {active_shank_channels_lists}")
 
     ## Build the detector:
-    test_detector = ExtendedRippleDetection(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
-    ripple_df, out_all_ripple_results = test_detector.compute(**({'active_session_folder': local_session_path,
+    active_detector = ExtendedRippleDetection(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
+    ripple_df, out_all_ripple_results = active_detector.compute(**({'active_session_folder': local_session_path,
          'numchannel': out_xml_dict['nChannels'], 'srLfp': out_xml_dict['lfpSampleRate'], 'active_shank_channels_lists': out_xml_dict['AnatGrps'],
          'overlapping': True, 'window_size': 0.0128, 'window_stride': 0.0064} | kwargs))
 
@@ -465,9 +466,9 @@ def main_compute_with_params_loaded_from_xml(local_session_path, **kwargs):
     print(f'done. Exiting.')
 
     # Save the main object
-    test_detector.save()
+    active_detector.save()
 
-    return test_detector, ripple_df, out_all_ripple_results
+    return active_detector, ripple_df, out_all_ripple_results
 
 
 if __name__ == '__main__':
