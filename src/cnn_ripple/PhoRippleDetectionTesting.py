@@ -266,7 +266,7 @@ class ExtendedRippleDetection(object):
 
     @classmethod
     def _build_post_load_ripple_df(cls, out_all_ripple_results_good_results, debug_print=False):
-        """ adds the 'shank_idx'
+        """ adds the 'shank_idx', 'durations'
             out_all_ripple_results = loaded_ripple_detector.out_all_ripple_results.copy()
             ripple_df = _build_post_load_ripple_df(out_all_ripple_results)
         """
@@ -278,7 +278,7 @@ class ExtendedRippleDetection(object):
             print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
         ripple_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1], 'shank_idx': flattened_pred_ripple_shank_idxs})
         ripple_df = ripple_df.sort_values(by=['start']) # sort the values by the start time
-        ripple_df['duration'] = ripple_df.stop - ripple_df.start
+        ripple_df['durations'] = ripple_df.stop - ripple_df.start
         return ripple_df
 
     # ==================================================================================================================== #
