@@ -51,3 +51,7 @@ conda activate cnn-new-env
 
 # Install NeuroPy:
 python -m pip install -e C:\Users\pho\repos\NeuroPy
+
+
+mamba env create -n cnn_ripple --file environment.yml
+mamba env update -n cnn_ripple --file environment.yml

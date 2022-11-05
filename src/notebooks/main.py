@@ -5,7 +5,7 @@ from copy import deepcopy
 # from numba import jit
 import numpy as np
 import pandas as pd
-from src.cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+from cnn_ripple_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
 
 if __name__ == '__main__':
 	local_session_parent_path = Path(r'W:\Data\KDIBA\gor01\one')

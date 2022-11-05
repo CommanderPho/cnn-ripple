@@ -7,8 +7,8 @@ import itertools # for list unpacking
 from neuropy.utils.load_exported import LoadXml, find_session_xml # for compute_with_params_loaded_from_xml
 from neuropy.utils.dynamic_container import DynamicContainer, override_dict, overriding_dict_with, get_dict_subset
 
-from .load_data import generate_overlapping_windows
-from .format_predictions import get_predictions_indexes
+from cnn_ripple.load_data import generate_overlapping_windows
+from cnn_ripple.format_predictions import get_predictions_indexes
 import tensorflow.keras.backend as K
 import tensorflow.keras as kr
 
@@ -33,7 +33,8 @@ class ExtendedRippleDetection(object):
     """ Uses the tensorflow model to detect ripples in a given recording sessions LFPs
 
     Usage:
-        from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+        from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+        from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
 
     """
     def __init__(self, **kwargs): # learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False
@@ -163,7 +164,7 @@ class ExtendedRippleDetection(object):
     def load(cls, in_ripple_detector_filepath):
         """Unpickle the object from file
         Usage:
-            from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+            from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
             in_ripple_detector_filepath = Path(r'W:\Data\KDIBA\gor01\one\2006-6-07_11-26-53\ripple_detector.pkl')
             loaded_ripple_detector = ExtendedRippleDetection.load(in_ripple_detector_filepath)
             loaded_ripple_detector
@@ -450,7 +451,7 @@ def main_compute_with_params_loaded_from_xml(local_session_path, whitelisted_sha
         _type_: _description_
 
     Usage:
-        from src.cnn.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
+        from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
 
         # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')
         # local_session_path = Path(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15')

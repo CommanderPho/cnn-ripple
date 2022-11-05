@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-from ..PhoRippleDetectionTesting import ExtendedRippleDetection
+from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection
 
 def plot_ripples(data, pred_indexes, k, downsampled_fs=1250):
     """plots the ripples
@@ -24,7 +24,7 @@ def plot_ripples(data, pred_indexes, k, downsampled_fs=1250):
 
     Usage:
 
-        from src.cnn.visualizations.plot_ripples import plot_ripples
+        from cnn_ripple.visualizations.plot_ripples import plot_ripples
         second =  0#@param {type:"integer"}
         pred_indexes = loaded_ripple_detector.results[0]['pred_indexes'] # note only uses shank 0
         fig, ax, plot_data = plot_ripples(loaded_ripple_detector.loaded_eeg_data, pred_indexes, second, downsampled_fs=1250)

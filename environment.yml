@@ -16,7 +16,6 @@ dependencies:
   - cudatoolkit=11.2
   - cudnn=8.1.0
   - dill
-  # - keras
   - pip:
     - tensorflow
 prefix: C:\Users\pho\miniconda3\envs\cnn-ripple
