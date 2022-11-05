@@ -103,7 +103,22 @@ class ExtendedRippleDetection(object):
     @property
     def results(self):
         return self.out_all_ripple_results.get('results', None)
+    @property
+    def shank_ids(self):
+        """The good_shank_ids property."""
+        return list(self.results.keys())
 
+    @property
+    def good_results(self):
+        """The good_results property."""
+        if self.out_all_ripple_results is None:
+            return {}
+        else:
+            return {k:v for k, v in self.out_all_ripple_results['results'].items() if np.size(v['pred_times'])>0} # Exclude empty items from the output dictionary 
+    @property
+    def good_shank_ids(self):
+        """The good_shank_ids property."""
+        return list(self.good_results.keys())
     # ==================================================================================================================== #
     # Helpers                                                                                                              #
     # ==================================================================================================================== #
@@ -119,7 +134,44 @@ class ExtendedRippleDetection(object):
         return optimizer, model
 
 
+    ## Continuous prediction probabilities:
+    # def _build_cnn_computed_ripple_prediction_probabilities(self, shank_id: int, debug_print=False):  
 
+    def _build_cnn_computed_ripple_prediction_probabilities(self, shank_id: int, debug_print=False):  
+        """
+        ripple_predictions_df, (prediction_timesteps, prediction_values) = _build_cnn_computed_ripple_prediction_probabilities(loaded_ripple_detector, shank_id=2)
+        ripple_predictions_df
+        """
+        # out_all_ripple_results = DynamicContainer.init_from_dict(pd.read_pickle(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15\out_all_ripple_results.pkl'))
+        out_all_ripple_results = DynamicContainer.init_from_dict(self.out_all_ripple_results.copy())
+        # list(out_all_ripple_results.keys()) # ['computation_params', 'results']
+        assert shank_id in out_all_ripple_results.results, f"{shank_id} is not in results list: {list(out_all_ripple_results.results.keys())}"
+        a_result = out_all_ripple_results.results[shank_id]
+        # a_result['predictions'].shape # (329925, 1, 1)
+        # list(out_all_ripple_results.results.keys()) # [0, 1, 2, 3]
+        dt = out_all_ripple_results.computation_params['stride']
+        prediction_timesteps = np.arange(np.size(a_result['predictions'])) * dt # + curr_active_pipeline.sess.t_start
+        prediction_values = np.squeeze(a_result['predictions'])
+        ripple_predictions_df = pd.DataFrame({'t': prediction_timesteps, 'v': prediction_values})
+        return ripple_predictions_df, (prediction_timesteps, prediction_values)
+
+
+    def _build_post_load_ripple_df(self, debug_print=False):
+        """ adds the 'shank_idx'
+        out_all_ripple_results = loaded_ripple_detector.out_all_ripple_results.copy()
+        ripple_df = _build_post_load_ripple_df(out_all_ripple_results)
+        """
+        # out_all_ripple_results_good_results = {k:v for k, v in loaded_ripple_detector.out_all_ripple_results['results'].items() if np.size(v['pred_times'])>0} # Exclude empty items from the output dictionary
+        out_all_ripple_results_good_results = self.good_results.copy()
+        flattened_pred_ripple_shank_idxs = np.hstack([np.full_like(np.squeeze(a_result['pred_times'][:,0]), a_result['shank'], dtype=np.int16) for a_result in out_all_ripple_results_good_results.values()])
+        if debug_print:
+            print(np.shape(flattened_pred_ripple_shank_idxs)) # (6016,)
+        flattened_pred_ripple_start_stop_times = np.vstack([a_result['pred_times'] for a_result in out_all_ripple_results_good_results.values() if np.size(a_result['pred_times'])>0])
+        if debug_print:    
+            print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
+        ripple_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1], 'shank_idx': flattened_pred_ripple_shank_idxs})
+        ripple_df = ripple_df.sort_values(by=['start']) # sort the values by the start time
+        return ripple_df
 
     # ==================================================================================================================== #
     # Persistance Saving/Loading                                                                                           #
