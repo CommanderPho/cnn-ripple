@@ -17,6 +17,8 @@ import tensorflow.keras as kr
 ## Define the .ui file path
 _path = os.path.dirname(os.path.abspath(__file__))
 _modelDirectory = os.path.join(_path, '../../model')
+_rebuild_ml_model_on_load = False # If True, the machine learning model is rebuilt on load for future computations. Otherwise it's just left as None
+
 
 # Works around objects that were pickled with old object names producing error: # ModuleNotFoundError: No module named 'src.cnn'
 class RenamingUnpickler(pickle.Unpickler):
@@ -43,7 +45,8 @@ class ExtendedRippleDetection(object):
         self.active_session_eeg_data_filepath = None
         self.loaded_eeg_data = None
         self.out_all_ripple_results = None
-        self.ripple_df = None
+        self._detected_ripple_epochs_df = None
+        self._continuous_ripple_likelihoods_df, self._continuous_ripple_prediction_timesteps, self._continuous_ripple_shanks_prediction_values_array = None, None, None
         self.optimizer, self.model = self._load_model(**(dict(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)|kwargs))
 
     def compute(self, active_session_folder=Path('/content/drive/Shareddrives/Diba Lab Data/KDIBA/gor01/one/2006-6-08_14-26-15'), numchannel = 96,
@@ -53,22 +56,36 @@ class ExtendedRippleDetection(object):
             active_shank_channels_lists = [[72,73,74,75,76,77,78,79], [81,82,83,84,85,86,87,88]],
             **kwargs
             ):
+        """ 
+
+        Updates:
+            active_session_folder
+            loaded_eeg_data, 
+            active_session_eeg_data_filepath,
+            active_session_folder
+            out_all_ripple_results
+            detected_ripples_df
+            continuous_ripple_likelihoods_df, continuous_ripple_prediction_timesteps, continuous_ripple_shanks_prediction_values_array
+        """
         self.active_session_folder = active_session_folder
         self.loaded_eeg_data, self.active_session_eeg_data_filepath, self.active_session_folder = self.load_eeg_data(active_session_folder=active_session_folder, numchannel=numchannel)
         self.out_all_ripple_results = self.compute_ripples(self.model, self.loaded_eeg_data, srLfp=srLfp, downsampled_fs=downsampled_fs, overlapping=overlapping, window_size=window_size, window_stride=window_stride, ripple_detection_threshold=ripple_detection_threshold, active_shank_channels_lists=active_shank_channels_lists, out_all_ripple_results=None, **(dict(debug_trace_computations_output=True, debug_print=False)|kwargs))
-
-        out_all_ripple_results_filepath = active_session_folder.joinpath('out_all_ripple_results.pkl')
-        with open(out_all_ripple_results_filepath, 'wb') as f:
-            print(f'saving results to {str(out_all_ripple_results_filepath)}...')
-            pickle.dump(self.out_all_ripple_results, f)
-        print(f'done.')
+        self._continuous_ripple_likelihoods_df, (self._continuous_ripple_prediction_timesteps, self._continuous_ripple_shanks_prediction_values_array) = self.build_cnn_computed_ripple_prediction_probabilities()
+        
+        # Save intermediate:
+        # out_all_ripple_results_filepath = active_session_folder.joinpath('out_all_ripple_results.pkl')
+        # with open(out_all_ripple_results_filepath, 'wb') as f:
+        #     print(f'saving results to {str(out_all_ripple_results_filepath)}...')
+        #     pickle.dump(self.out_all_ripple_results, f)
+        # print(f'done.')
         flattened_pred_ripple_start_stop_times = np.vstack([a_result['pred_times'] for a_result in self.out_all_ripple_results['results'].values() if np.size(a_result['pred_times'])>0])
-        print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
-        ripple_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1]})
-        self.ripple_df = ripple_df
+        # print(f'flattened_pred_ripple_start_stop_times: {np.shape(flattened_pred_ripple_start_stop_times)}') # (6498, 2)
+        detected_ripple_epochs_df = pd.DataFrame({'start':flattened_pred_ripple_start_stop_times[:,0], 'stop': flattened_pred_ripple_start_stop_times[:,1]})
+        detected_ripple_epochs_df = ExtendedRippleDetection._build_post_load_ripple_df(self.good_results.copy(), debug_print=False)
+        self._detected_ripple_epochs_df = detected_ripple_epochs_df
         print(f'Saving ripple_df to csv: {self.predicted_ripples_dataframe_csv_save_filepath}')
-        ripple_df.to_csv(self.predicted_ripples_dataframe_csv_save_filepath)
-        return ripple_df, self.out_all_ripple_results
+        detected_ripple_epochs_df.to_csv(self.predicted_ripples_dataframe_csv_save_filepath)
+        return detected_ripple_epochs_df, self.out_all_ripple_results
 
     # load/save paths ____________________________________________________________________________________________________ #
     @property
@@ -109,6 +126,15 @@ class ExtendedRippleDetection(object):
         return list(self.results.keys())
 
     @property
+    def detected_ripple_epochs_df(self):
+        """The detected_ripples_df property."""
+        return self._detected_ripple_epochs_df
+    @detected_ripple_epochs_df.setter
+    def detected_ripple_epochs_df(self, value):
+        self._detected_ripple_epochs_df = value
+
+
+    @property
     def good_results(self):
         """The good_results property."""
         if self.out_all_ripple_results is None:
@@ -119,6 +145,50 @@ class ExtendedRippleDetection(object):
     def good_shank_ids(self):
         """The good_shank_ids property."""
         return list(self.good_results.keys())
+
+
+    # Continuous Ripple Likelihood Properties ____________________________________________________________________________ #
+
+
+
+    @property
+    def has_continuous_computation_results(self):
+        """ """
+        try:
+            if self._continuous_ripple_likelihoods_df is None:
+                return False
+            else:
+                return True
+        except AttributeError as e:
+            return False
+
+
+    @property
+    def continuous_ripple_likelihoods_df(self):
+        """ """
+        if not self.has_continuous_computation_results:
+            self._continuous_ripple_likelihoods_df, (self._continuous_ripple_prediction_timesteps, self._continuous_ripple_shanks_prediction_values_array) = self.build_cnn_computed_ripple_prediction_probabilities()
+        return self._continuous_ripple_likelihoods_df
+
+    @property
+    def continuous_ripple_prediction_timesteps(self):
+        """ """
+        if not self.has_continuous_computation_results:
+            self._continuous_ripple_likelihoods_df, (self._continuous_ripple_prediction_timesteps, self._continuous_ripple_shanks_prediction_values_array) = self.build_cnn_computed_ripple_prediction_probabilities()
+        return self._continuous_ripple_prediction_timesteps
+
+    @property
+    def continuous_ripple_shanks_prediction_values_array(self):
+        """ """
+        if not self.has_continuous_computation_results:
+            self._continuous_ripple_likelihoods_df, (self._continuous_ripple_prediction_timesteps, self._continuous_ripple_shanks_prediction_values_array) = self.build_cnn_computed_ripple_prediction_probabilities()
+        return self._continuous_ripple_shanks_prediction_values_array
+
+
+
+    
+
+
     # ==================================================================================================================== #
     # Helpers                                                                                                              #
     # ==================================================================================================================== #
@@ -135,34 +205,71 @@ class ExtendedRippleDetection(object):
 
 
     ## Continuous prediction probabilities:
-    # def _build_cnn_computed_ripple_prediction_probabilities(self, shank_id: int, debug_print=False):  
+    def build_cnn_computed_ripple_prediction_probabilities(self, shank_ids=None, debug_print=False):  
+        return ExtendedRippleDetection._build_cnn_computed_ripple_prediction_probabilities(self.out_all_ripple_results.copy(), shank_ids=shank_ids, debug_print=debug_print)
 
-    def _build_cnn_computed_ripple_prediction_probabilities(self, shank_id: int, debug_print=False):  
+
+    @classmethod
+    def _build_cnn_computed_ripple_prediction_probabilities(cls, out_all_ripple_results, shank_ids=None, debug_print=False):  
+        """ Builds the timestamps that correspond with each probability prediction and then builds a dataframe containing the probability predictions for each shank
+
+        Returns:
+            pd.DataFrame 329398 rows × 13 columns
+            (prediction_timesteps, shanks_prediction_values_array): 
+                prediction_timesteps: a (num_timestamps,) np.array - e.g. (329398,)
+                shanks_prediction_values_array is an (num_timestamps, numShanks) np.array - e.g. (329398, 12)
+        Usage:
+            ripple_predictions_df, (prediction_timesteps, shanks_prediction_values_array) = loaded_ripple_detector.build_cnn_computed_ripple_prediction_probabilities()
+            ripple_predictions_df
+
         """
-        ripple_predictions_df, (prediction_timesteps, prediction_values) = _build_cnn_computed_ripple_prediction_probabilities(loaded_ripple_detector, shank_id=2)
-        ripple_predictions_df
-        """
-        # out_all_ripple_results = DynamicContainer.init_from_dict(pd.read_pickle(r'W:\Data\KDIBA\gor01\one\2006-6-08_14-26-15\out_all_ripple_results.pkl'))
-        out_all_ripple_results = DynamicContainer.init_from_dict(self.out_all_ripple_results.copy())
-        # list(out_all_ripple_results.keys()) # ['computation_params', 'results']
-        assert shank_id in out_all_ripple_results.results, f"{shank_id} is not in results list: {list(out_all_ripple_results.results.keys())}"
-        a_result = out_all_ripple_results.results[shank_id]
-        # a_result['predictions'].shape # (329925, 1, 1)
-        # list(out_all_ripple_results.results.keys()) # [0, 1, 2, 3]
-        dt = out_all_ripple_results.computation_params['stride']
-        prediction_timesteps = np.arange(np.size(a_result['predictions'])) * dt # + curr_active_pipeline.sess.t_start
-        prediction_values = np.squeeze(a_result['predictions'])
-        ripple_predictions_df = pd.DataFrame({'t': prediction_timesteps, 'v': prediction_values})
-        return ripple_predictions_df, (prediction_timesteps, prediction_values)
+        if not isinstance(out_all_ripple_results, DynamicContainer):
+            out_all_ripple_results = DynamicContainer.init_from_dict(out_all_ripple_results)
+
+        valid_shank_ids = list(out_all_ripple_results.results.keys())
+
+        if shank_ids is None:
+            # all shank ids by default:
+            shank_ids = valid_shank_ids.copy()
+
+        dt = out_all_ripple_results.computation_params['stride'] # same for all shank_ids
+        prediction_timesteps = None
+        prediction_values_dict = {}
+
+        for a_shank_id in shank_ids:
+            # list(out_all_ripple_results.keys()) # ['computation_params', 'results']
+            assert a_shank_id in out_all_ripple_results.results, f"{a_shank_id} is not in results list: {valid_shank_ids}"
+            a_result = out_all_ripple_results.results[a_shank_id]
+            # a_result['predictions'].shape # (329925, 1, 1)
+            # list(out_all_ripple_results.results.keys()) # [0, 1, 2, 3]
+
+            prediction_values = np.squeeze(a_result['predictions'])
+            num_prediction_timestamps = np.size(prediction_values)
+            if prediction_timesteps is None:
+                prediction_timesteps = np.arange(num_prediction_timestamps) * dt # + curr_active_pipeline.sess.t_start
+            else:
+                assert np.shape(prediction_timesteps)[0] == num_prediction_timestamps, "each shank should have the same number of timestamps, right??"
 
 
-    def _build_post_load_ripple_df(self, debug_print=False):
+            prediction_values_dict[f'v{a_shank_id}'] = prediction_values
+        if debug_print:
+            print(f'prediction_values_dict: {prediction_values_dict}')
+    
+        ripple_predictions_df = pd.DataFrame({'t': prediction_timesteps, **prediction_values_dict})
+        # concatenate each of the values columns into a (num_timestamps, numShanks) output array
+        shanks_prediction_values_array = np.stack(list(prediction_values_dict.values()), axis=1) #.shape # (329398, 12)
+        return ripple_predictions_df, (prediction_timesteps, shanks_prediction_values_array)
+
+
+    # def build_post_load_ripple_df(self, debug_print=False):
+    #     return ExtendedRippleDetection._build_post_load_ripple_df(self.good_results.copy(), debug_print=debug_print)
+
+    @classmethod
+    def _build_post_load_ripple_df(cls, out_all_ripple_results_good_results, debug_print=False):
         """ adds the 'shank_idx'
-        out_all_ripple_results = loaded_ripple_detector.out_all_ripple_results.copy()
-        ripple_df = _build_post_load_ripple_df(out_all_ripple_results)
+            out_all_ripple_results = loaded_ripple_detector.out_all_ripple_results.copy()
+            ripple_df = _build_post_load_ripple_df(out_all_ripple_results)
         """
-        # out_all_ripple_results_good_results = {k:v for k, v in loaded_ripple_detector.out_all_ripple_results['results'].items() if np.size(v['pred_times'])>0} # Exclude empty items from the output dictionary
-        out_all_ripple_results_good_results = self.good_results.copy()
         flattened_pred_ripple_shank_idxs = np.hstack([np.full_like(np.squeeze(a_result['pred_times'][:,0]), a_result['shank'], dtype=np.int16) for a_result in out_all_ripple_results_good_results.values()])
         if debug_print:
             print(np.shape(flattened_pred_ripple_shank_idxs)) # (6016,)
@@ -201,7 +308,11 @@ class ExtendedRippleDetection(object):
         else:
             loaded_model_kwargs = {} # empty dict to use defaults
         # Rebuild the model:
-        self.optimizer, self.model = self._load_model(**(dict(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)|loaded_model_kwargs))
+        if _rebuild_ml_model_on_load:
+            self.optimizer, self.model = self._load_model(**(dict(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)|loaded_model_kwargs))
+        else:
+            print(f'WARNING: _rebuild_ml_model_on_load is set to False, so not rebuilding the machine learning model after loading.')
+            self.optimizer, self.model = None, None
 
 
     def save(self):
@@ -222,6 +333,17 @@ class ExtendedRippleDetection(object):
             loaded_ripple_detector
 
         """
+        if not isinstance(in_ripple_detector_filepath, Path):
+            in_ripple_detector_filepath = Path(in_ripple_detector_filepath)
+
+        # If the user passes in a directory instead of the direct file path to the pickle file, find the pickle file using the default name
+        if in_ripple_detector_filepath.is_dir():
+            # assume the passed in directory is the active_local_session_path
+            print(f'assuming the passed in directory is the active_local_session_path, building default in_ripple_detector_filepath from it...')
+            active_local_session_path = in_ripple_detector_filepath
+            in_ripple_detector_filepath = active_local_session_path.joinpath('ripple_detector.pkl') # Path(r'W:\Data\KDIBA\gor01\one\2006-6-07_11-26-53\ripple_detector.pkl')
+            print(f'\t in_ripple_detector_filepath: {str(in_ripple_detector_filepath)}')
+
         with open(in_ripple_detector_filepath, 'rb') as f:
             print(f'loading pickled ripple detector object from {str(in_ripple_detector_filepath)}...')
             try:
