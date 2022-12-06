@@ -133,7 +133,6 @@ class ExtendedRippleDetection(object):
     def detected_ripple_epochs_df(self, value):
         self._detected_ripple_epochs_df = value
 
-
     @property
     def good_results(self):
         """The good_results property."""
@@ -149,8 +148,6 @@ class ExtendedRippleDetection(object):
 
     # Continuous Ripple Likelihood Properties ____________________________________________________________________________ #
 
-
-
     @property
     def has_continuous_computation_results(self):
         """ """
@@ -161,7 +158,6 @@ class ExtendedRippleDetection(object):
                 return True
         except AttributeError as e:
             return False
-
 
     @property
     def continuous_ripple_likelihoods_df(self):
