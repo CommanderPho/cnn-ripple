@@ -1,3 +1,7 @@
+"""
+conda activate cnn-ripple
+
+"""
 import os
 import numpy as np
 import pandas as pd
@@ -5,7 +9,9 @@ from pathlib import Path
 import pickle
 from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
 
-local_session_parent_path = Path(r'W:\Data\KDIBA\gor01\one')
+
+# local_session_parent_path = Path(r'W:\Data\KDIBA\gor01\one') # Windows Apogee
+local_session_parent_path = Path(r'/media/MAX/Data/KDIBA/gor01/one') # Diba Lab Workstation Linux
 local_session_names_list = ['2006-6-07_11-26-53', '2006-6-08_14-26-15', '2006-6-09_1-22-43', '2006-6-09_3-23-37', '2006-6-12_15-55-31', '2006-6-13_14-42-6']
 local_session_paths_list = [local_session_parent_path.joinpath(a_name).resolve() for a_name in local_session_names_list]
 

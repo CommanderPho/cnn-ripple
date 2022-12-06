@@ -49,9 +49,21 @@ mamba env remove --name cnn-new-env
 mamba env create -f cnn-new-env.yml
 conda activate cnn-new-env
 
-# Install NeuroPy:
-python -m pip install -e C:\Users\pho\repos\NeuroPy
 
-
+mamba env remove --name cnn_ripple
 mamba env create -n cnn_ripple --file environment.yml
 mamba env update -n cnn_ripple --file environment.yml
+
+# Install NeuroPy:
+
+## Apogee/Windows:
+python -m pip install -e C:\Users\pho\repos\NeuroPy
+
+## Linux:
+python -m pip install -e ~/repos/NeuroPy
+
+
+# Install cnn-ripple:
+python -m pip install -e .
+
+
