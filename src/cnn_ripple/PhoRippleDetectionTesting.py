@@ -661,7 +661,7 @@ def main_compute_with_params_loaded_from_xml(local_session_path, whitelisted_sha
     return active_detector, ripple_df, out_all_ripple_results
 
 
-def load_cnn_computed_ripples(active_local_session_path, skip_loading_ripple_detector=True):
+def load_cnn_computed_ripples(active_local_session_path, skip_loading_ripple_csv=True, skip_loading_ripple_detector=True):
     """ Load existing result instead    
         - TODO: refactor this into the session loading like the other imported properties 
 
@@ -669,20 +669,23 @@ def load_cnn_computed_ripples(active_local_session_path, skip_loading_ripple_det
 
     Usage:
 
-        from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml
-        loaded_ripple_epochs_df, loaded_ripple_df, loaded_ripple_detector = _perform_load_cnn_computed_ripples(curr_active_pipeline.sess.basepath)
+        from cnn_ripple.PhoRippleDetectionTesting import ExtendedRippleDetection, main_compute_with_params_loaded_from_xml, load_cnn_computed_ripples
+        loaded_ripple_epochs_df, loaded_ripple_df, loaded_ripple_detector = load_cnn_computed_ripples(curr_active_pipeline.sess.basepath)
 
     """
     ## Load `pred_ripples.csv` previously saved:
-    ripple_predicted_csv_filepath = active_local_session_path.joinpath('pred_ripples.csv')
-    detected_ripple_epochs_df = pd.read_csv(ripple_predicted_csv_filepath)
-    
+    if not skip_loading_ripple_csv:
+        ripple_predicted_csv_filepath = active_local_session_path.joinpath('pred_ripples.csv')
+        detected_ripple_epochs_df = pd.read_csv(ripple_predicted_csv_filepath)
+    else:
+        detected_ripple_epochs_df = None
+
     ## Load `ripple_df.pkl` previously saved:
     ripple_df_filepath = active_local_session_path.joinpath('ripple_df.pkl')
     ripple_df = pd.read_pickle(ripple_df_filepath)
     
     ## The complete `ExtendedRippleDetection` detctor. This is a heavy object, so don't load it unless we need it.
-    if skip_loading_ripple_detector:
+    if not skip_loading_ripple_detector:
         in_ripple_detector_filepath = active_local_session_path.joinpath('ripple_detector.pkl') # Path(r'W:\Data\KDIBA\gor01\one\2006-6-07_11-26-53\ripple_detector.pkl')
         loaded_ripple_detector = ExtendedRippleDetection.load(in_ripple_detector_filepath)
     else:
