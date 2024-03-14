@@ -45,6 +45,9 @@ Inputs must meet the following characteristics:
 
 # NEW 2022-11-02
 
+../../../miniforge3/condabin
+/home/halechr/miniforge3/condabin/mamba
+
 mamba env remove --name cnn-new-env
 mamba env create -f cnn-new-env.yml
 conda activate cnn-new-env
@@ -65,5 +68,8 @@ python -m pip install -e ~/repos/NeuroPy
 
 # Install cnn-ripple:
 python -m pip install -e .
+
+
+python -m pip install -e ~/repos/External/cnn_ripple
 
 
